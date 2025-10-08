@@ -63,17 +63,17 @@ jobs:
           echo "CODEOWNERS file exists"
 
       - name: Validate CODEOWNERS syntax
-        uses: msfrmsft/codeowners-check@v1
+        uses: mszostok/codeowners-validator@v0.7.4
         with:
-          pattern: "**"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          checks: "files,owners,duppatterns"
 
   check-reviewers:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - name: Check required reviewers
-        uses: kentaro-m/check-pr-reviewers-action@v2
+      - name: Ensure PR has required reviewers
+        uses: seferov/pr-reviewer-check-action@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          required_reviewers: "DaniilCS"
-          require_approval: true
+          reviewers: "DaniilCS"
