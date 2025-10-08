@@ -10,7 +10,18 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  check-push-to-main:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for direct push to main
+        run: |
+          echo "Direct pushes to main are prohibited!"
+          echo "Please create a pull request instead."
+          exit 1
+
   build:
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref != 'refs/heads/main')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -36,3 +47,52 @@ jobs:
 
       - name: Pre-commit (all files)
         run: pre-commit run --all-files
+
+  check-commit-signatures:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check commit signatures
+        run: |
+          unsigned_commits=$(git log --pretty=format:"%H %G?" ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }} | grep -v " G$" | wc -l)
+          if [ $unsigned_commits -ne 0 ]; then
+            echo "Found $unsigned_commits unsigned commits in this PR"
+            echo "All commits must be signed with GPG"
+            exit 1
+          else
+            echo "All commits are properly signed"
+          fi
+
+  check-codeowners:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check CODEOWNERS exist
+        run: |
+          if [ ! -f ".github/CODEOWNERS" ]; then
+            echo "CODEOWNERS file is missing"
+            echo "Please create .github/CODEOWNERS file"
+            exit 1
+          fi
+          echo "CODEOWNERS file exists"
+
+      - name: Validate CODEOWNERS syntax
+        uses: msfrmsft/codeowners-check@v1
+        with:
+          pattern: "**"
+
+  check-reviewers:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check required reviewers
+        uses: kentaro-m/check-pr-reviewers-action@v2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          required_reviewers: "DaniilCS"
+          require_approval: true
