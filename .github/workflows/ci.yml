@@ -65,7 +65,7 @@ jobs:
       - name: Validate CODEOWNERS syntax
         uses: mszostok/codeowners-validator@v0.7.4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
           checks: "files,owners,duppatterns"
 
   check-reviewers:
@@ -73,7 +73,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ensure PR has required reviewers
-        uses: seferov/pr-reviewer-check-action@v1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          reviewers: "DaniilCS"
+        run: |
+          echo "Checking that PR has required reviewer..."
+          reviewers=$(gh pr view ${{ github.event.pull_request.number }} --json reviewers --jq '.reviewers[].login')
+          echo "Found reviewers: $reviewers"
+
+          if echo "$reviewers" | grep -q "DaniilCS"; then
+            echo "Required reviewer found"
+          else
+            echo "Required reviewer 'DaniilCS' not found"
+            exit 1
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
