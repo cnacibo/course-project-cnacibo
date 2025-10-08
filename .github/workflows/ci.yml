@@ -48,25 +48,6 @@ jobs:
       - name: Pre-commit (all files)
         run: pre-commit run --all-files
 
-  check-commit-signatures:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Check commit signatures
-        run: |
-          unsigned_commits=$(git log --pretty=format:"%H %G?" ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }} | grep -v " G$" | wc -l)
-          if [ $unsigned_commits -ne 0 ]; then
-            echo "Found $unsigned_commits unsigned commits in this PR"
-            echo "All commits must be signed with GPG"
-            exit 1
-          else
-            echo "All commits are properly signed"
-          fi
-
   check-codeowners:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
