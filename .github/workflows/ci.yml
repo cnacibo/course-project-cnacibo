@@ -10,7 +10,18 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  check-push-to-main:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for direct push to main
+        run: |
+          echo "Direct pushes to main are prohibited!"
+          echo "Please create a pull request instead."
+          exit 1
+
   build:
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref != 'refs/heads/main')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -36,3 +47,41 @@ jobs:
 
       - name: Pre-commit (all files)
         run: pre-commit run --all-files
+
+  check-codeowners:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check CODEOWNERS exist
+        run: |
+          if [ ! -f ".github/CODEOWNERS" ]; then
+            echo "CODEOWNERS file is missing"
+            echo "Please create .github/CODEOWNERS file"
+            exit 1
+          fi
+          echo "CODEOWNERS file exists"
+
+      - name: Validate CODEOWNERS syntax
+        uses: mszostok/codeowners-validator@v0.7.4
+        with:
+          checks: "syntax,duppatterns"
+#
+#  check-reviewers:
+#    if: github.event_name == 'pull_request'
+#    runs-on: ubuntu-latest
+#    steps:
+#      - name: Ensure PR has required reviewers
+#        run: |
+#          echo "Checking required reviewer..."
+#          reviewers=$(gh pr view ${{ github.event.pull_request.number }} --json reviewRequests --jq '.reviewRequests[].requestedReviewer.login')
+#          echo "Found reviewers: $reviewers"
+#
+#          if echo "$reviewers" | grep -q "DaniilCS"; then
+#            echo "Required reviewer found"
+#          else
+#            echo "Adding reviewer DaniilCS..."
+#            gh pr edit ${{ github.event.pull_request.number }} --add-reviewer DaniilCS
+#          fi
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
