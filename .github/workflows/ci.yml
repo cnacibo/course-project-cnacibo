@@ -11,7 +11,11 @@ concurrency:
 
 jobs:
   check-push-to-main:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: |
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      !startsWith(github.event.head_commit.message, 'Merge pull request') &&
+      github.event.head_commit.committer.name != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - name: Check for direct push to main
