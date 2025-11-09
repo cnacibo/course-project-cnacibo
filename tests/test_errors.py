@@ -39,8 +39,13 @@ def test_create_card_validation_error_empty_title(client):
     r = client.post("/cards", json=card_data)
     assert r.status_code == 422
     body = r.json()
-    assert "error" in body
-    assert body["error"]["code"] == "validation_error"
+
+    assert "detail" in body
+    assert "correlation_id" in body
+    assert "title" in body
+    assert "status" in body
+    assert body["status"] == 422
+    assert "at least 1 character" in body["detail"]
 
 
 def test_create_card_validation_error_long_title(client):
@@ -53,8 +58,11 @@ def test_create_card_validation_error_long_title(client):
     r = client.post("/cards", json=card_data)
     assert r.status_code == 422
     body = r.json()
-    assert "error" in body
-    assert body["error"]["code"] == "validation_error"
+
+    assert "detail" in body
+    assert body["status"] == 422
+    assert "correlation_id" in body
+    assert "at most 100 characters" in body["detail"]
 
 
 def test_get_card_success(client):
@@ -79,8 +87,11 @@ def test_get_card_not_found(client):
     r = client.get("/cards/999")
     assert r.status_code == 404
     body = r.json()
-    assert "error" in body and body["error"]["code"] == "not_found"
-    assert "Card not found" in body["error"]["message"]
+
+    assert body["status"] == 404
+    assert "correlation_id" in body
+    assert "detail" in body
+    assert "Card not found" in body["detail"]
 
 
 def test_update_card_success(client):
@@ -121,8 +132,11 @@ def test_update_card_validation_error(client):
     r = client.patch(f"/cards/{card_id}", json=update_data)
     assert r.status_code == 422
     body = r.json()
-    assert "error" in body
-    assert body["error"]["code"] == "validation_error"
+
+    assert "detail" in body
+    assert body["status"] == 422
+    assert "correlation_id" in body
+    assert "at least 1 character" in body["detail"]
 
 
 def test_update_card_not_found(client):
@@ -131,7 +145,10 @@ def test_update_card_not_found(client):
     r = client.patch("/cards/999", json=update_data)
     assert r.status_code == 404
     body = r.json()
-    assert body["error"]["code"] == "not_found"
+
+    assert body["status"] == 404
+    assert "correlation_id" in body
+    assert "Card not found" in body["detail"]
 
 
 def test_delete_card_success(client):
@@ -158,8 +175,10 @@ def test_delete_card_not_found(client):
     r = client.delete("/cards/999")
     assert r.status_code == 404
     body = r.json()
-    assert "error" in body
-    assert body["error"]["code"] == "not_found"
+
+    assert body["status"] == 404
+    assert "correlation_id" in body
+    assert "Card not found" in body["detail"]
 
 
 def test_order_idx_auto_increment(client):

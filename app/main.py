@@ -1,37 +1,115 @@
+# import os
+import uuid
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from .models.schemas import CardCreate, CardResponse, CardUpdate, ColumnType
 
+# ADR-001
+# JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret-change-in-production")
+# DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./test.db")
+# APP_ENV = os.getenv("APP_ENV", "development")
+
 app = FastAPI(title="Idea Kanban API", version="0.1.0")
 
 
-class ApiError(Exception):
-    def __init__(self, code: str, message: str, status: int = 400):
-        self.code = code
-        self.message = message
-        self.status = status
+# ADR-002
+class ProblemDetails(Exception):
+
+    def __init__(
+        self,
+        status_code: int,
+        title: str,
+        detail: str,
+        error_type: str = None,
+        correlation_id: str = None,
+    ):
+        self.status = status_code
+        self.title = title
+        self.detail = detail
+        self.type = error_type or "about:blank"
+        self.correlation_id = correlation_id
 
 
-@app.exception_handler(ApiError)
-async def api_error_handler(request: Request, exc: ApiError):
+class ApiError(ProblemDetails):
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        status_code: int = 400,
+        correlation_id: str = None,
+    ):
+        super().__init__(
+            status_code=status_code,
+            title=code,
+            detail=message,
+            error_type=f"/errors/{code}",
+            correlation_id=correlation_id,
+        )
+
+
+# добавление correlation_id ко всем запросам
+@app.middleware("http")
+async def add_correlation_id(request: Request, call_next):
+    correlation_id = request.headers.get("X-Correlation-ID", str(uuid.uuid4()))
+    request.state.correlation_id = correlation_id
+
+    response = await call_next(request)
+    response.headers["X-Correlation-ID"] = correlation_id
+    return response
+
+
+def _create_problem_response(
+    status_code: int,
+    title: str,
+    detail: str,
+    correlation_id: str,
+    error_type: str = None,
+) -> JSONResponse:
+
+    problem_data = {
+        "type": error_type or "about:blank",
+        "title": title,
+        "status": status_code,
+        "detail": detail,
+        "correlation_id": correlation_id,
+        "instance": f"/errors/{uuid.uuid4()}",
+    }
+
+    # if APP_ENV == "production" and status_code >= 500:
+    #     problem_data["detail"] = "An internal server error occurred"
+
     return JSONResponse(
+        status_code=status_code,
+        content=problem_data,
+        media_type="application/problem+json",
+    )
+
+
+@app.exception_handler(ProblemDetails)
+async def api_error_handler(request: Request, exc: ProblemDetails):
+    return _create_problem_response(
         status_code=exc.status,
-        content={"error": {"code": exc.code, "message": exc.message}},
+        title=exc.title,
+        detail=exc.detail,
+        correlation_id=exc.correlation_id or request.state.correlation_id,
+        error_type=exc.type,
     )
 
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
-    # Normalize FastAPI HTTPException into our error envelope
-    detail = exc.detail if isinstance(exc.detail, str) else "http_error"
-    return JSONResponse(
+    detail = exc.detail if isinstance(exc.detail, str) else "HTTP error occurred"
+    return _create_problem_response(
         status_code=exc.status_code,
-        content={"error": {"code": "http_error", "message": detail}},
+        title="http_error",
+        detail=detail,
+        correlation_id=request.state.correlation_id,
+        error_type=f"/errors/http_{exc.status_code}",
     )
 
 
@@ -45,12 +123,43 @@ async def request_validation_error_handler(
         loc = ".".join(str(x) for x in err.get("loc", []))
         error_messages.append(f"{loc}: {msg}" if loc else msg)
 
-    message_text = "; ".join(error_messages)
+    detail = "; ".join(error_messages)
 
-    return JSONResponse(
-        status_code=422,
-        content={"error": {"code": "validation_error", "message": message_text}},
+    return _create_problem_response(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        title="validation_error",
+        detail=detail,
+        correlation_id=request.state.correlation_id,
+        error_type="/errors/validation",
     )
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    print(f"Unhandled exception: {exc}, correlation_id: {request.state.correlation_id}")
+
+    return _create_problem_response(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        title="internal_server_error",
+        # detail=str(exc) if APP_ENV != "production" else "Internal server error",
+        detail=str(exc),
+        correlation_id=request.state.correlation_id,
+        error_type="/errors/internal",
+    )
+
+
+# ADR-003
+class SecureHTTPClient:
+
+    def __init__(self):
+        self.connect_timeout = 5
+        self.read_timeout = 30
+        self.max_retries = 3
+        self.max_response_size = 50 * 1024 * 1024
+
+    async def request(self, method: str, url: str, **kwargs):
+        # заглушка
+        pass
 
 
 _DB = {"cards": []}
@@ -106,13 +215,14 @@ def get_cards():
 
 
 @app.post("/cards", response_model=CardResponse)
-def create_card(card: CardCreate):
+def create_card(card: CardCreate, request: Request):
     """Создать новую карточку"""
     if not card.title.strip() or len(card.title) > 100:
         raise ApiError(
             code="validation_error",
             message="Title must be 1-100 characters",
-            status=422,
+            status_code=422,
+            correlation_id=request.state.correlation_id,
         )
 
     new_card = {
@@ -130,28 +240,39 @@ def create_card(card: CardCreate):
 
 
 @app.get("/cards/{card_id}", response_model=CardResponse)
-def get_card(card_id: int):
+def get_card(card_id: int, request: Request):
     """Получить карточку по ID"""
     for it in _DB["cards"]:
         if it["id"] == card_id:
             return it
 
-    raise ApiError(code="not_found", message="Card not found", status=404)
+    raise ApiError(
+        code="not_found",
+        message="Card not found",
+        status_code=404,
+        correlation_id=request.state.correlation_id,
+    )
 
 
 @app.patch("/cards/{card_id}", response_model=CardResponse)
-def update_card(card_id: int, card_update: CardUpdate):
+def update_card(card_id: int, card_update: CardUpdate, request: Request):
     """Обновить карточку по ID"""
     card = _get_card_by_id(card_id)
     if not card:
-        raise ApiError(code="not_found", message="Card not found", status=404)
+        raise ApiError(
+            code="not_found",
+            message="Card not found",
+            status_code=404,
+            correlation_id=request.state.correlation_id,
+        )
 
     if card_update.title is not None:
         if not card_update.title.strip() or len(card_update.title) > 100:
             raise ApiError(
                 code="validation_error",
                 message="Title must be 1-100 characters",
-                status=422,
+                status_code=422,
+                correlation_id=request.state.correlation_id,
             )
         card["title"] = card_update.title.strip()
 
@@ -175,7 +296,7 @@ def update_card(card_id: int, card_update: CardUpdate):
 
 
 @app.delete("/cards/{card_id}")
-def delete_card(card_id: int):
+def delete_card(card_id: int, request: Request):
     """Удалить карточку по ID"""
     for i, card in enumerate(_DB["cards"]):
         if card["id"] == card_id:
@@ -186,4 +307,9 @@ def delete_card(card_id: int):
 
             return {"message": "Card deleted successfully"}
 
-    raise ApiError(code="not_found", message="Card not found", status=404)
+    raise ApiError(
+        code="not_found",
+        message="Card not found",
+        status_code=404,
+        correlation_id=request.state.correlation_id,
+    )
