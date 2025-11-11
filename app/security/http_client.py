@@ -1,9 +1,10 @@
-# ADR-003
 import asyncio
 import logging
 from typing import Any, Dict, Optional
 
 import httpx
+
+# ADR-003
 
 logger = logging.getLogger(__name__)
 

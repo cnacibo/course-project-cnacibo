@@ -1,4 +1,3 @@
-# import os
 import re
 import uuid
 from datetime import datetime
@@ -11,6 +10,7 @@ from fastapi.responses import JSONResponse
 from .models.schemas import CardCreate, CardResponse, CardUpdate, ColumnType
 
 # ADR-001
+# import os
 # JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret-change-in-production")
 # DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./test.db")
 # APP_ENV = os.getenv("APP_ENV", "development")
