@@ -190,20 +190,6 @@ async def general_exception_handler(request: Request, exc: Exception):
     )
 
 
-# ADR-003
-class SecureHTTPClient:
-
-    def __init__(self):
-        self.connect_timeout = 5
-        self.read_timeout = 30
-        self.max_retries = 3
-        self.max_response_size = 50 * 1024 * 1024
-
-    async def request(self, method: str, url: str, **kwargs):
-        # заглушка
-        pass
-
-
 _DB = {"cards": []}
 
 
