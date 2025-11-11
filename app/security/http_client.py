@@ -1,8 +1,9 @@
 # ADR-003
-from typing import Dict, Any,  Optional
 import asyncio
-import httpx
 import logging
+from typing import Any, Dict, Optional
+
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +14,7 @@ class ResponseTooLargeError(httpx.RequestError):
 
 class SecureHTTPClient:
     """Безопасный HTTP-клиент с таймаутами, ретраями и лимитами"""
+
     def __init__(
         self,
         connect_timeout: float = 5.0,
@@ -27,7 +29,7 @@ class SecureHTTPClient:
             connect=connect_timeout,
             read=read_timeout,
             write=write_timeout,
-            pool=pool_timeout
+            pool=pool_timeout,
         )
         self.max_retries = max_retries
         self.max_response_size = max_response_size
@@ -36,7 +38,7 @@ class SecureHTTPClient:
         self._client = httpx.AsyncClient(
             timeout=self.timeout,
             follow_redirects=self.follow_redirects,
-            limits=httpx.Limits(max_keepalive_connections=5, max_connections=10)
+            limits=httpx.Limits(max_keepalive_connections=5, max_connections=10),
         )
 
     async def close(self) -> None:
@@ -51,7 +53,9 @@ class SecureHTTPClient:
             except (ValueError, TypeError):
                 size = None
             if size is not None and size > self.max_response_size:
-                raise ResponseTooLargeError(f"Response too large per Content-Length: {size} bytes")
+                raise ResponseTooLargeError(
+                    f"Response too large per Content-Length: {size} bytes"
+                )
 
         # читаем частями
         total = 0
@@ -61,7 +65,9 @@ class SecureHTTPClient:
             if total > self.max_response_size:
                 # выкидываем ошибку
                 await resp.aread()
-                raise ResponseTooLargeError(f"Response body exceeded limit: {total} bytes")
+                raise ResponseTooLargeError(
+                    f"Response body exceeded limit: {total} bytes"
+                )
             chunks.append(chunk)
 
         content = b"".join(chunks)
@@ -77,13 +83,13 @@ class SecureHTTPClient:
         return new_resp
 
     async def request(
-            self,
-            method: str,
-            url: str,
-            headers: Optional[Dict[str, str]] = None,
-            json: Optional[Dict[str, Any]] = None,
-            data: Optional[Dict[str, Any]] = None,
-            params: Optional[Dict[str, Any]] = None,
+        self,
+        method: str,
+        url: str,
+        headers: Optional[Dict[str, str]] = None,
+        json: Optional[Dict[str, Any]] = None,
+        data: Optional[Dict[str, Any]] = None,
+        params: Optional[Dict[str, Any]] = None,
     ) -> httpx.Response:
         last_exception: Optional[Exception] = None
 
@@ -120,17 +126,35 @@ class SecureHTTPClient:
                 # проверяем статус
                 resp_checked.raise_for_status()
 
-                logger.info("Request successful (attempt %d): %s %s", attempt, method, url)
+                logger.info(
+                    "Request successful (attempt %d): %s %s", attempt, method, url
+                )
                 return resp_checked
 
-            except (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError) as e:
+            except (
+                httpx.TimeoutException,
+                httpx.ConnectError,
+                httpx.NetworkError,
+            ) as e:
                 last_exception = e
-                logger.warning("Network/timeout (attempt %d/%d): %s — %s", attempt, self.max_retries, url, str(e))
+                logger.warning(
+                    "Network/timeout (attempt %d/%d): %s — %s",
+                    attempt,
+                    self.max_retries,
+                    url,
+                    str(e),
+                )
 
             except httpx.HTTPStatusError as e:
                 last_exception = e
                 status = e.response.status_code if e.response is not None else None
-                logger.warning("HTTP status error %s (attempt %d/%d): %s", status, attempt, self.max_retries, url)
+                logger.warning(
+                    "HTTP status error %s (attempt %d/%d): %s",
+                    status,
+                    attempt,
+                    self.max_retries,
+                    url,
+                )
 
                 if 400 <= (status or 0) < 500:
                     raise e
@@ -141,13 +165,21 @@ class SecureHTTPClient:
 
             except Exception as e:
                 last_exception = e
-                logger.warning("Request failed (attempt %d/%d): %s — %s", attempt, self.max_retries, url, str(e))
+                logger.warning(
+                    "Request failed (attempt %d/%d): %s — %s",
+                    attempt,
+                    self.max_retries,
+                    url,
+                    str(e),
+                )
 
             # backoff задержка
             if attempt < self.max_retries:
                 base = 0.5 * (2 ** (attempt - 1))
                 jitter = base * 0.1
-                wait_time = base + (jitter * (0.5 - asyncio.get_running_loop().time() % 1))
+                wait_time = base + (
+                    jitter * (0.5 - asyncio.get_running_loop().time() % 1)
+                )
                 await asyncio.sleep(wait_time)
 
         raise last_exception or httpx.RequestError("All retry attempts failed")

@@ -1,10 +1,11 @@
+import json
+import re
 from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
 from typing import Optional
-import json
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-import re
 
 ALLOWED_TEXT_REGEX = re.compile(r"^[^\x00-\x1F\x7F]*$")
 
@@ -19,18 +20,18 @@ def validate_text_chars(value: str, field_name: str):
 
 class StripAndValidateMixin:
     @classmethod
-    @field_validator('title', 'description', mode='before')
+    @field_validator("title", "description", mode="before")
     def strip_and_validate(cls, v, info):
         if v is None:
             return v
         if isinstance(v, str):
             v = v.strip()
-            if info.field_name == 'title' and not v:
-                raise ValueError('title cannot be empty or whitespace only')
+            if info.field_name == "title" and not v:
+                raise ValueError("title cannot be empty or whitespace only")
         return v
 
     @classmethod
-    @field_validator('title', 'description', mode='after')
+    @field_validator("title", "description", mode="after")
     def validate_allowed_chars_after(cls, v, info):
         return validate_text_chars(v, info.field_name)
 
@@ -47,7 +48,7 @@ class CardBase(StripAndValidateMixin, BaseModel):
     description: Optional[str] = Field(None, max_length=1000)
     column: ColumnType
 
-    model_config = ConfigDict(use_enum_values=True, extra='forbid')
+    model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
 
 class CardCreate(CardBase):
@@ -59,7 +60,7 @@ class CardUpdate(StripAndValidateMixin, BaseModel):
     description: Optional[str] = Field(None, max_length=1000)
     column: Optional[ColumnType] = None
 
-    model_config = ConfigDict(use_enum_values=True, extra='forbid')
+    model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
 
 class CardResponse(CardBase):
@@ -69,7 +70,7 @@ class CardResponse(CardBase):
     updated_at: datetime
 
     @classmethod
-    @field_validator('created_at', 'updated_at', mode='before')
+    @field_validator("created_at", "updated_at", mode="before")
     def normalize_datetime(cls, v):
         if isinstance(v, datetime) and v.tzinfo is not None:
             return v.astimezone(timezone.utc).replace(tzinfo=None)

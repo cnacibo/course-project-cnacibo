@@ -1,6 +1,6 @@
 # import os
-import uuid
 import re
+import uuid
 from datetime import datetime
 from typing import List, Optional
 
@@ -46,7 +46,7 @@ class ApiError(ProblemDetails):
     ):
         super().__init__(
             status_code=status_code,
-            title=ERROR_MAP.get(code, "An error occurred"),
+            title=code,
             detail=message,
             error_type=ERROR_TYPES.get(code, "about:blank"),
             correlation_id=correlation_id,
@@ -58,15 +58,17 @@ def mask_sensitive_data(text: str) -> str:
         return text
 
     # маскирование email
-    text = re.sub(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
-                  '[EMAIL_REDACTED]', text)
+    text = re.sub(
+        r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", "[EMAIL_REDACTED]", text
+    )
 
     # маскирование токенов
-    text = re.sub(r'\beyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]*\.[A-Za-z0-9_-]*\b',
-                  '[JWT_REDACTED]', text)
+    text = re.sub(
+        r"\beyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]*\.[A-Za-z0-9_-]*\b", "[JWT_REDACTED]", text
+    )
 
     # маскирование длинных числовых последовательностей
-    text = re.sub(r'\b\d{13,19}\b', '[CARD_REDACTED]', text)
+    text = re.sub(r"\b\d{13,19}\b", "[CARD_REDACTED]", text)
 
     return text
 
@@ -86,14 +88,14 @@ ERROR_MAP = {
     "validation_error": "Invalid input data provided",
     "not_found": "Requested resource not found",
     "internal_server_error": "Internal server error occurred",
-    "http_error": "HTTP error occurred"
+    "http_error": "HTTP error occurred",
 }
 
 ERROR_TYPES = {
     "validation": "https://api.example.com/errors/validation",
     "not_found": "https://api.example.com/errors/not-found",
     "http_error": "https://api.example.com/errors/http",
-    "internal": "https://api.example.com/errors/internal"
+    "internal": "https://api.example.com/errors/internal",
 }
 
 

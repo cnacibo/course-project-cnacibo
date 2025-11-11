@@ -32,12 +32,10 @@ class TestADR001SecretsManagement:
             with open(file_path, "r", encoding="utf-8") as f:
                 content = f.read()
                 for keyword in sensitive_keywords:
-                    # Ищем хардкоженные значения, но пропускаем примеры и тесты
                     if f'{keyword}"' in content and "example" not in content.lower():
                         lines = content.split("\n")
                         for i, line in enumerate(lines):
                             if keyword in line and "os.getenv" not in line:
-                                # Пропускаем комментарии и строки с примером
                                 if (
                                     not line.strip().startswith("#")
                                     and "example" not in line.lower()
@@ -66,7 +64,7 @@ class TestADR002ErrorFormat:
         assert "detail" in error_data
         assert "correlation_id" in error_data
         assert "instance" in error_data
-        assert error_data["title"] == "validation_error"
+        assert error_data["title"] == "Invalid input data provided"
 
     def test_rfc_7807_format_not_found(self):
         """Тест формата ошибки 404 по RFC 7807"""
@@ -76,7 +74,7 @@ class TestADR002ErrorFormat:
         assert response.headers["content-type"] == "application/problem+json"
 
         error_data = response.json()
-        assert error_data["title"] == "not_found"
+        assert error_data["title"] == "Requested resource not found"
         assert "correlation_id" in error_data
 
     def test_correlation_id_present(self):
@@ -112,7 +110,7 @@ class TestADR003SecurityPolicies:
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
         error_data = response.json()
-        assert error_data["title"] == "validation_error"
+        assert error_data["title"] == "Invalid input data provided"
 
     def test_malformed_json_handling(self):
         """Тест обработки невалидного JSON"""
@@ -124,7 +122,7 @@ class TestADR003SecurityPolicies:
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
         error_data = response.json()
-        assert "validation_error" in error_data["title"]
+        assert error_data["title"] == "Invalid input data provided"
 
 
 class TestNegativeScenarios:
