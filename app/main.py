@@ -1,5 +1,6 @@
 # import os
 import uuid
+import re
 from datetime import datetime
 from typing import List, Optional
 
@@ -45,11 +46,29 @@ class ApiError(ProblemDetails):
     ):
         super().__init__(
             status_code=status_code,
-            title=code,
+            title=ERROR_MAP.get(code, "An error occurred"),
             detail=message,
-            error_type=f"/errors/{code}",
+            error_type=ERROR_TYPES.get(code, "about:blank"),
             correlation_id=correlation_id,
         )
+
+
+def mask_sensitive_data(text: str) -> str:
+    if not text:
+        return text
+
+    # маскирование email
+    text = re.sub(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
+                  '[EMAIL_REDACTED]', text)
+
+    # маскирование токенов
+    text = re.sub(r'\beyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]*\.[A-Za-z0-9_-]*\b',
+                  '[JWT_REDACTED]', text)
+
+    # маскирование длинных числовых последовательностей
+    text = re.sub(r'\b\d{13,19}\b', '[CARD_REDACTED]', text)
+
+    return text
 
 
 # добавление correlation_id ко всем запросам
@@ -63,6 +82,27 @@ async def add_correlation_id(request: Request, call_next):
     return response
 
 
+ERROR_MAP = {
+    "validation_error": "Invalid input data provided",
+    "not_found": "Requested resource not found",
+    "internal_server_error": "Internal server error occurred",
+    "http_error": "HTTP error occurred"
+}
+
+ERROR_TYPES = {
+    "validation": "https://api.example.com/errors/validation",
+    "not_found": "https://api.example.com/errors/not-found",
+    "http_error": "https://api.example.com/errors/http",
+    "internal": "https://api.example.com/errors/internal"
+}
+
+
+def get_safe_error_detail(error_code: str, original_detail: str = "") -> str:
+    if original_detail:
+        return original_detail
+    return ERROR_MAP.get(error_code, "An error occurred")
+
+
 def _create_problem_response(
     status_code: int,
     title: str,
@@ -70,12 +110,14 @@ def _create_problem_response(
     correlation_id: str,
     error_type: str = None,
 ) -> JSONResponse:
+    safe_title = ERROR_MAP.get(title, "An error occurred")
+    safe_detail = get_safe_error_detail(title, detail)
 
     problem_data = {
-        "type": error_type or "about:blank",
-        "title": title,
+        "type": error_type or ERROR_TYPES.get(title, "about:blank"),
+        "title": safe_title,
         "status": status_code,
-        "detail": detail,
+        "detail": mask_sensitive_data(safe_detail),
         "correlation_id": correlation_id,
         "instance": f"/errors/{uuid.uuid4()}",
     }
@@ -109,7 +151,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
         title="http_error",
         detail=detail,
         correlation_id=request.state.correlation_id,
-        error_type=f"/errors/http_{exc.status_code}",
+        error_type=ERROR_TYPES["http_error"],
     )
 
 
@@ -130,7 +172,7 @@ async def request_validation_error_handler(
         title="validation_error",
         detail=detail,
         correlation_id=request.state.correlation_id,
-        error_type="/errors/validation",
+        error_type=ERROR_TYPES["validation"],
     )
 
 
@@ -144,7 +186,7 @@ async def general_exception_handler(request: Request, exc: Exception):
         # detail=str(exc) if APP_ENV != "production" else "Internal server error",
         detail=str(exc),
         correlation_id=request.state.correlation_id,
-        error_type="/errors/internal",
+        error_type=ERROR_TYPES["internal"],
     )
 
 
