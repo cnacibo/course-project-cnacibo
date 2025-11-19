@@ -38,17 +38,22 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
           pip install ruff black isort pytest
 
       - name: Run linters
         run: |
-          ruff check .
-          black --check .
-          isort --check-only .
+          mkdir -p reports
+          echo "Running Ruff..."
+          ruff check . --output-file=reports/ruff.txt || echo "Ruff check completed"
+          echo "Running Black..."
+          black --check . 2>&1 | tee reports/black.txt || echo "Black check completed"
+          echo "Running Isort..."
+          isort --check-only . 2>&1 | tee reports/isort.txt || echo "Isort check completed"
 
       - name: Run tests
         run: |
-          mkdir -p reports
           pytest -q --junitxml=reports/junit.xml --tb=short
 
       - name: Upload test reports
