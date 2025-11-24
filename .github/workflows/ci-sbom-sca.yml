@@ -37,8 +37,14 @@ jobs:
           docker run --rm -v $PWD:/work -w /work anchore/grype:latest \
             sbom:/work/EVIDENCE/P09/sbom.json -o json > EVIDENCE/P09/sca_report.json
           echo "# SCA summary" > EVIDENCE/P09/sca_summary.md
+          echo "## Vulnerability Severity Counts" >> EVIDENCE/P09/sca_summary.md
           jq '[.matches[].vulnerability.severity] | group_by(.) | map({(.[0]): length}) | add' \
             EVIDENCE/P09/sca_report.json >> EVIDENCE/P09/sca_summary.md || true
+          echo "" >> EVIDENCE/P09/sca_summary.md
+          echo "## Scan Details" >> EVIDENCE/P09/sca_summary.md
+          echo "- Scan date: $(date)" >> EVIDENCE/P09/sca_summary.md
+          echo "- Scanner: Grype" >> EVIDENCE/P09/sca_summary.md
+          echo "- SBOM source: Syft (CycloneDX)" >> EVIDENCE/P09/sca_summary.md
 
       - name: Upload SBOM/SCA evidence
         if: always()
@@ -46,3 +52,4 @@ jobs:
         with:
           name: P09_EVIDENCE
           path: EVIDENCE/P09
+          retention-days: 30
