@@ -51,3 +51,25 @@ docker compose up --build
 ```
 
 См. также: `SECURITY.md`, `.pre-commit-config.yaml`, `.github/workflows/ci.yml`.
+
+# P08 CI/CD Minimal
+
+Минимальный CI-конвейер для проверки кода Python.
+
+## Особенности
+
+- Автоматические проверки при push и pull request
+- Кэширование зависимостей pip
+- Проверка линтерами (Ruff, Black, Isort)
+- Запуск тестов (pytest)
+- Сохранение отчётов в артефакты
+
+## Локальный запуск проверок
+
+```bash
+pip install ruff black isort pytest
+ruff check .
+black --check .
+isort --check-only .
+pytest
+```
