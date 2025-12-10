@@ -1,0 +1,50 @@
+rules:
+  - id: py-unsafe-html-echo
+    languages: [python]
+    message: "Потенциально небезопасный вывод пользовательских данных в HTMLResponse"
+    severity: WARNING
+    patterns:
+      - pattern: |
+          HTMLResponse(f"...{$X}...")
+    metadata:
+      category: security
+      cwe: "CWE-79: Cross-site Scripting"
+
+  - id: py-hardcoded-secret
+    languages: [python]
+    message: "Возможное хардкодирование секрета в коде"
+    severity: ERROR
+    patterns:
+      - pattern: |
+          "password" : "..."
+      - pattern: |
+          "secret" : "..."
+      - pattern: |
+          "api_key" : "..."
+    metadata:
+      category: security
+      cwe: "CWE-798: Use of Hard-coded Credentials"
+
+  - id: py-unsafe-eval
+    languages: [python]
+    message: "Использование опасных функций eval/exec"
+    severity: ERROR
+    patterns:
+      - pattern: eval(...)
+      - pattern: exec(...)
+    metadata:
+      category: security
+      cwe: "CWE-95: Improper Neutralization of Directives in Dynamically Evaluated Code"
+
+  - id: py-sql-injection-risk
+    languages: [python]
+    message: "Потенциальная SQL-инъекция через строковую интерполяцию"
+    severity: WARNING
+    patterns:
+      - pattern: |
+          f"SELECT ... { $VAR } ..."
+      - pattern: |
+          "SELECT ..." + $VAR + "..."
+    metadata:
+      category: security
+      cwe: "CWE-89: SQL Injection"

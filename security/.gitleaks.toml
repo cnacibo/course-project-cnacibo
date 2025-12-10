@@ -1,0 +1,22 @@
+title = "course-project-cnacibo gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Ignore non-sensitive patterns"
+paths = [
+  "EVIDENCE/",
+  "tests/",
+  "uploads/",
+  "docs/",
+]
+commits = []
+regexes = [
+  '''example\.com''',
+  '''test_.*''',
+  '''DEBUG_.*''',
+  '''mock_.*''',
+  '''fake_.*''',
+  '''sample_.*''',
+]
