@@ -47,7 +47,7 @@ jobs:
           docker run --rm \
             -v "$PWD":/zap/wrk \
             --add-host=host.docker.internal:host-gateway \
-            owasp/zap2docker-stable \
+            ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py \
               -t http://host.docker.internal:8080 \
               -r zap_baseline.html \
