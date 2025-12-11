@@ -45,12 +45,12 @@ jobs:
       - name: ZAP Baseline
         run: |
           docker run --rm \
-            -v "$(pwd)/EVIDENCE/P11":/out \
+            -v "$(pwd)/EVIDENCE/P11":/zap/wrk \
             ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py \
               -t http://host.docker.internal:8080 \
-              -r /out/zap_baseline.html \
-              -J /out/zap_baseline.json \
+              -r zap_baseline.html \
+              -J zap_baseline.json \
               -d
           echo "=== files in workspace after ZAP ==="
           ls -la EVIDENCE/P11
