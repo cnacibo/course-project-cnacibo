@@ -45,10 +45,11 @@ jobs:
       - name: ZAP Baseline
         run: |
           docker run --rm \
-            -v "$(pwd)/EVIDENCE/P11":/zap/wrk \
+            --network=host \
+            -v "$(pwd)/EVIDENCE/P11":/zap/wrk:rw \
             ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py \
-              -t http://host.docker.internal:8080 \
+              -t http://localhost:8080 \
               -r zap_baseline.html \
               -J zap_baseline.json \
               -d
