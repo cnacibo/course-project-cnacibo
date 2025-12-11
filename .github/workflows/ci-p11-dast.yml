@@ -45,7 +45,7 @@ jobs:
       - name: ZAP Baseline
         run: |
           docker run --rm \
-            -v $PWD/zap_reports:/zap/wrk \
+            -v "$(pwd)/EVIDENCE/P11":/zap/wrk \
             --add-host=host.docker.internal:host-gateway \
             ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py \
