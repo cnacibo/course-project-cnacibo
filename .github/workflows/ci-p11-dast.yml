@@ -55,7 +55,7 @@ jobs:
               -r zap_baseline.html \
               -J zap_baseline.json \
               -d \
-              --exit-code-ignore-warn
+              -I
 
       - name: Upload P11 evidence
         if: always()
