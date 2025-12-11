@@ -44,13 +44,20 @@ jobs:
 
       - name: ZAP Baseline
         run: |
-          docker run --rm --network host -v $PWD:/zap/wrk owasp/zap2docker-stable \
+          docker run --rm \
+            -v "$PWD":/zap/wrk \
+            --add-host=host.docker.internal:host-gateway \
+            owasp/zap2docker-stable \
             zap-baseline.py \
-              -t http://localhost:8080 \
+              -t http://host.docker.internal:8080 \
               -r zap_baseline.html \
               -J zap_baseline.json \
-              -d || true
-          mv zap_baseline.* EVIDENCE/P11/ || true
+              -d
+          echo "=== files in workspace after ZAP ==="
+          ls -la
+          mkdir -p EVIDENCE/P11
+          mv zap_baseline.* EVIDENCE/P11/
+          echo "Moved reports to EVIDENCE/P11/"
 
       - name: Upload P11 evidence
         if: always()
