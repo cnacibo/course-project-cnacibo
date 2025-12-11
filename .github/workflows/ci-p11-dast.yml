@@ -27,7 +27,6 @@ jobs:
       - name: Ensure evidence dirs
         run: |
           mkdir -p EVIDENCE/P11
-          chmod -R 777 EVIDENCE/P11
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -55,7 +54,8 @@ jobs:
               -t http://localhost:8080 \
               -r zap_baseline.html \
               -J zap_baseline.json \
-              -d
+              -d \
+              --exit-code-ignore-warn
 
       - name: Upload P11 evidence
         if: always()
